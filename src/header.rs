@@ -1,22 +1,41 @@
 use crate::check;
 use crate::elf::*;
 
-pub fn get_header_info(elf: &[u8]) -> Result<Ehdr, String> {
+pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
     if !check(&elf) {
         return Err("Not a vivid ELF".to_string());
     }
     let e_ident: [u8; 16] = elf[0..16].try_into().unwrap();
 
     // EI_CLASS
+    let is_64bit: bool;
     #[cfg(debug_assertions)]
     {
         match elf[4] {
-            1 => println!("This ELF is 32-bit."),
-            2 => println!("This ELF is 64-bit."),
+            1 => {
+                println!("This ELF is 32-bit.");
+                is_64bit = false;
+            },
+            2 => {
+                println!("This ELF is 64-bit.");
+                is_64bit = true;
+            },
             _ => return Err("Not a vivid ELF".to_string()),
         }
     }
 
+    #[cfg(not(debug_assertions))]
+    {
+        match elf[4] {
+            1 => {
+                is_64bit = false;
+            },
+            2 => {
+                is_64bit = true;
+            },
+            _ => return Err("Not a vivid ELF".to_string()),
+        }
+    }
 
     // EI_DATA
 
@@ -53,25 +72,27 @@ pub fn get_header_info(elf: &[u8]) -> Result<Ehdr, String> {
     #[cfg(debug_assertions)]
     {
         match elf[7] {
-            0 => println!("OS-ABI is System-V."),
-            1 => println!("OS-ABI is HP-UX."),
-            2 => println!("OS-ABI is NetBSD."),
-            3 => println!("OS-ABI is Linux."),
-            4 => println!("OS-ABI is GNU-Hurd."),
-            6 => println!("OS-ABI is Sun Solaris."),
-            7 => println!("OS-ABI is IBM AIX."),
-            8 => println!("OS-ABI is SGI IRIX."),
-            9 => println!("OS-ABI is FreeBSD."),
-            10 => println!("OS-ABI is TRU64 UNIX."),
-            11 => println!("OS-ABI is Novell Modesto."),
-            12 => println!("OS-ABI is OpenBSD."),
-            97 => println!("OS-ABI is ARM."),
-            255 => println!("No system."),
+            ELFOSABI_NONE => println!("OS-ABI is System-V."),
+            ELFOSABI_HPUX => println!("OS-ABI is HP-UX."),
+            ELFOSABI_NETBSD => println!("OS-ABI is NetBSD."),
+            ELFOSABI_LINUX => println!("OS-ABI is Linux."),
+            ELFOSABI_HURD => println!("OS-ABI is GNU-Hurd."),
+            ELFOSABI_SOLARIS => println!("OS-ABI is Sun Solaris."),
+            ELFOSABI_AIX => println!("OS-ABI is IBM AIX."),
+            ELFOSABI_IRIX => println!("OS-ABI is SGI IRIX."),
+            ELFOSABI_FREEBSD => println!("OS-ABI is FreeBSD."),
+            ELFOSABI_TRU64 => println!("OS-ABI is TRU64 UNIX."),
+            ELFOSABI_MODESTO => println!("OS-ABI is Novell Modesto."),
+            ELFOSABI_OPENBSD => println!("OS-ABI is OpenBSD."),
+            ELFOSABI_ARM => println!("OS-ABI is ARM."),
+            ELFOSABI_STANDALONE => println!("No system."),
             _ => return Err("Not a vivid ELF".to_string()),
         }
     }
-    
-    match elf[4] {
+
+    let offset: usize;
+
+    let ehdr = match elf[4] {
         // 32-bit
         1 => {
             let e_type: Elf32_Half = read_u16(16, &elf, is_le);
@@ -87,7 +108,8 @@ pub fn get_header_info(elf: &[u8]) -> Result<Ehdr, String> {
             let e_shentsize: Elf32_Half = read_u16(16, &elf, is_le);
             let e_shnum: Elf32_Half = read_u16(48, &elf, is_le);
             let e_shstrndx: Elf32_Half = read_u16(50, &elf, is_le);
-            return Ok(Ehdr::Elf32(Elf32_Ehdr {
+            offset = 52;
+            Ehdr::Elf32(Elf32_Ehdr {
                 e_ident, 
                 e_type,
                 e_machine,
@@ -102,7 +124,7 @@ pub fn get_header_info(elf: &[u8]) -> Result<Ehdr, String> {
                 e_shentsize,
                 e_shnum,
                 e_shstrndx,
-            }));
+            })
         },
         // 64-bit
         2 => {
@@ -119,7 +141,8 @@ pub fn get_header_info(elf: &[u8]) -> Result<Ehdr, String> {
             let e_shentsize: Elf64_Half = read_u16(58, &elf, is_le);
             let e_shnum: Elf64_Half = read_u16(60, &elf, is_le);
             let e_shstrndx: Elf64_Half = read_u16(62, &elf, is_le);
-            return Ok(Ehdr::Elf64(Elf64_Ehdr {
+            offset = 64;
+            Ehdr::Elf64(Elf64_Ehdr {
                 e_ident, 
                 e_type,
                 e_machine,
@@ -134,10 +157,18 @@ pub fn get_header_info(elf: &[u8]) -> Result<Ehdr, String> {
                 e_shentsize,
                 e_shnum,
                 e_shstrndx,
-            }));
+            })
         },
         _ => return Err("Not a vivid ELF".to_string()),
-    }
+    };
+
+    Ok(elf_header {
+        ehdr,
+        is_64bit,
+        is_le,
+        os_abi: elf[7],
+        offset,
+    })
 }
 
 #[inline(always)]
