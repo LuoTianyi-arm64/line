@@ -114,7 +114,6 @@ pub struct elf_header {
     pub is_64bit: bool,
     pub is_le: bool,
     pub os_abi: u8,
-    pub offset: usize,
 }
 
 #[repr(C)]
@@ -138,11 +137,12 @@ pub struct Elf64_Phdr {
     pub p_offset: Elf64_Off,
     pub p_vaddr: Elf64_Addr,
     pub p_paddr: Elf64_Addr,
-    pub p_filesz: Elf64_Word,
-    pub p_memsz: Elf64_Word,
-    pub p_align: Elf64_Word,
+    pub p_filesz: Elf64_Xword,
+    pub p_memsz: Elf64_Xword,
+    pub p_align: Elf64_Xword,
 }
 
+#[derive(Debug)]
 pub enum Phdr {
     x86(Elf32_Phdr),
     x64(Elf64_Phdr),

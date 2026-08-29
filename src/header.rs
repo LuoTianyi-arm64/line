@@ -1,5 +1,6 @@
-use crate::check;
+use crate::check_elf::*;
 use crate::elf::*;
+use crate::function::*;
 
 pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
     if !check(&elf) {
@@ -90,8 +91,6 @@ pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
         }
     }
 
-    let offset: usize;
-
     let ehdr = match elf[4] {
         // 32-bit
         1 => {
@@ -108,7 +107,7 @@ pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
             let e_shentsize: Elf32_Half = read_u16(16, &elf, is_le);
             let e_shnum: Elf32_Half = read_u16(48, &elf, is_le);
             let e_shstrndx: Elf32_Half = read_u16(50, &elf, is_le);
-            offset = 52;
+
             Ehdr::Elf32(Elf32_Ehdr {
                 e_ident, 
                 e_type,
@@ -126,6 +125,7 @@ pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
                 e_shstrndx,
             })
         },
+        
         // 64-bit
         2 => {
             let e_type: Elf64_Half = read_u16(16, &elf, is_le);
@@ -141,7 +141,6 @@ pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
             let e_shentsize: Elf64_Half = read_u16(58, &elf, is_le);
             let e_shnum: Elf64_Half = read_u16(60, &elf, is_le);
             let e_shstrndx: Elf64_Half = read_u16(62, &elf, is_le);
-            offset = 64;
             Ehdr::Elf64(Elf64_Ehdr {
                 e_ident, 
                 e_type,
@@ -167,42 +166,5 @@ pub fn get_header_info(elf: &[u8]) -> Result<elf_header, String> {
         is_64bit,
         is_le,
         os_abi: elf[7],
-        offset,
     })
-}
-
-#[inline(always)]
-fn read_u16(offset: usize, buf: &[u8], is_le: bool) -> u16 {
-    let raw: [u8; 2] = buf[offset..offset + 2].try_into().unwrap();
-    if is_le { u16::from_le_bytes(raw) } else { u16::from_be_bytes(raw) }
-}
-
-#[inline(always)]
-fn read_u32(offset: usize, buf: &[u8], is_le: bool) -> u32 {
-    let raw: [u8; 4] = buf[offset..offset + 4].try_into().unwrap();
-    if is_le { u32::from_le_bytes(raw) } else { u32::from_be_bytes(raw) }
-}
-
-#[inline(always)]
-fn read_u64(offset: usize, buf: &[u8], is_le: bool) -> u64 {
-    let raw: [u8; 8] = buf[offset..offset + 8].try_into().unwrap();
-    if is_le { u64::from_le_bytes(raw) } else { u64::from_be_bytes(raw) }
-}
-
-#[inline(always)]
-fn read_i16(offset: usize, buf: &[u8], is_le: bool) -> i16 {
-    let raw: [u8; 2] = buf[offset..offset + 2].try_into().unwrap();
-    if is_le { i16::from_le_bytes(raw) } else { i16::from_be_bytes(raw) }
-}
-
-#[inline(always)]
-fn read_i32(offset: usize, buf: &[u8], is_le: bool) -> i32 {
-    let raw: [u8; 4] = buf[offset..offset + 4].try_into().unwrap();
-    if is_le { i32::from_le_bytes(raw) } else { i32::from_be_bytes(raw) }
-}
-
-#[inline(always)]
-fn read_i64(offset: usize, buf: &[u8], is_le: bool) -> i64 {
-    let raw: [u8; 8] = buf[offset..offset + 8].try_into().unwrap();
-    if is_le { i64::from_le_bytes(raw) } else { i64::from_be_bytes(raw) }
 }
